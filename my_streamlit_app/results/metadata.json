@@ -1,49 +1,31 @@
 {
   "classes": [
     {
-      "id": 0,
       "name": "Sawah",
       "color": "#E6C229"
     },
     {
-      "id": 1,
       "name": "Bangunan",
       "color": "#E74C3C"
     },
     {
-      "id": 2,
       "name": "Mangrove",
       "color": "#0B6E4F"
     },
     {
-      "id": 3,
       "name": "Lahan Hijau",
       "color": "#7BC043"
     },
     {
-      "id": 4,
       "name": "Perairan Laut",
       "color": "#1F5FBF"
     },
     {
-      "id": 5,
       "name": "Danau (Ranu)",
       "color": "#00CFE8"
     }
   ],
   "model": "SVM (RBF)",
-  "fitur": [
-    "B2",
-    "B3",
-    "B4",
-    "B8",
-    "B11",
-    "B12",
-    "NDVI",
-    "NDWI",
-    "MNDWI",
-    "NDBI"
-  ],
   "n_train": 6480,
   "n_test": 1872,
   "metrics": {
@@ -145,6 +127,5 @@
         113.0082831569536
       ]
     }
-  ],
-  "province": null
+  ]
 }
