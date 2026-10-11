@@ -6,7 +6,7 @@ import folium
 from streamlit_folium import st_folium
 
 st.set_page_config(page_title="Klasifikasi Lahan Jawa Timur", layout="wide")
-R = Path("results")
+R = Path(__file__).parent / "results"
 meta = json.loads((R / "metadata.json").read_text())
 
 st.title("Klasifikasi Tutupan Lahan Jawa Timur")
