@@ -31,6 +31,15 @@ with tab_peta:
         if (R / x["file"]).exists():
             folium.raster_layers.ImageOverlay(image=str(R / x["file"]), bounds=x["bounds"], opacity=opasitas, name=x["name"]).add_to(m)
             
+    # Tambahkan kembali Legenda untuk Peta Utama
+    classes_meta = meta.get('classes', [])
+    legenda_items_peta = "".join(
+        f"<span style='display:inline-block;width:14px;height:14px;background:{k['color']};margin-right:6px;border-radius:3px;vertical-align:middle;'></span><span style='color:black;vertical-align:middle;'>{k['name']}</span><br>" 
+        for k in classes_meta
+    )
+    legenda_peta_html = f"<div style='position:fixed;bottom:25px;left:25px;z-index:9999;background:white;padding:10px 12px;border:1px solid #888;font-size:12px;border-radius:5px;box-shadow: 0 2px 6px rgba(0,0,0,0.3);'><b>Legenda Klasifikasi</b><br>{legenda_items_peta}</div>"
+    m.get_root().html.add_child(folium.Element(legenda_peta_html))
+            
     folium.LayerControl().add_to(m)
     st_folium(m, height=550, use_container_width=True, returned_objects=[])
 
@@ -58,9 +67,6 @@ with tab_sampel:
             m_sampel = folium.Map(location=[-7.536, 112.238], zoom_start=8, tiles=None)
             folium.TileLayer("https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", attr="Google", name="Google Satellite", max_zoom=20).add_to(m_sampel)
             
-            classes_meta = meta.get('classes', [])
-            
-            # Fungsi pencocokan warna berdasarkan label kelas
             def get_color_for_label(lbl):
                 for idx, c in enumerate(classes_meta):
                     if str(lbl).strip().lower() == str(c.get('name', '')).strip().lower() or \
@@ -69,7 +75,6 @@ with tab_sampel:
                         return c.get('color', '#3388ff')
                 return '#3388ff'
             
-            # Tambahkan Marker Titik Sampel dengan warna dinamis per kelas
             for _, row in df_filtered.iterrows():
                 lat = row.get('latitude', row.get('lat', -7.5))
                 lon = row.get('longitude', row.get('lon', row.get('lng', 112.2)))
@@ -88,12 +93,11 @@ with tab_sampel:
                     popup=f"Kelas: {label}"
                 ).add_to(m_sampel)
                 
-            # Tambahkan kotak legenda khusus sampel (dengan teks hitam agar kontras di latar putih)
-            legenda_items = "".join(
+            legenda_items_sampel = "".join(
                 f"<span style='display:inline-block;width:14px;height:14px;background:{k['color']};margin-right:6px;border-radius:50%;vertical-align:middle;'></span><span style='color:black;vertical-align:middle;'>{k['name']}</span><br>" 
                 for k in classes_meta
             )
-            legenda_sampel = f"<div style='position:fixed;bottom:25px;left:25px;z-index:9999;background:white;padding:10px 12px;border:1px solid #888;font-size:12px;border-radius:5px;box-shadow: 0 2px 6px rgba(0,0,0,0.3);'><b>Legenda Sampel</b><br>{legenda_items}</div>"
+            legenda_sampel = f"<div style='position:fixed;bottom:25px;left:25px;z-index:9999;background:white;padding:10px 12px;border:1px solid #888;font-size:12px;border-radius:5px;box-shadow: 0 2px 6px rgba(0,0,0,0.3);'><b>Legenda Sampel</b><br>{legenda_items_sampel}</div>"
             
             m_sampel.get_root().html.add_child(folium.Element(legenda_sampel))
                 
