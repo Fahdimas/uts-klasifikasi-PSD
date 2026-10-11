@@ -12,7 +12,7 @@ meta = json.loads((R / "metadata.json").read_text())
 st.title("🌱 Klasifikasi Tutupan Lahan Jawa Timur")
 st.caption(f"Sentinel-2 L2A | Model: {meta['model']}")
 
-# Tab Navigasi (ditambah menu Titik Sampel)
+# Tab Navigasi
 tab_peta, tab_sampel, tab_eval = st.tabs(["Peta Regional & AOI", "Peta Titik Sampel", "Evaluasi dan Statistik"])
 
 with tab_peta:
@@ -36,14 +36,12 @@ with tab_peta:
 
 with tab_sampel:
     st.subheader("📍 Peta Sebaran Titik Sampel & Hasil Prediksi")
-    st.markdown("Menampilkan sebaran titik sampel dari data latih/uji tutupan lahan.")
+    st.markdown("Menampilkan sebaran titik sampel dari data latih/uji tutupan lahan dengan warna berbeda tiap kelas.")
     
-    # Cek apakah file samples.csv ada
     sample_path = R / "samples.csv"
     if sample_path.exists():
         df_samples = pd.read_csv(sample_path)
         
-        # Filter berdasarkan kelas jika kolomnya tersedia (sesuaikan dengan nama kolom di CSV kamu, misal 'class' atau 'label')
         if 'class' in df_samples.columns or 'label' in df_samples.columns:
             kolom_kelas = 'class' if 'class' in df_samples.columns else 'label'
             daftar_kelas = df_samples[kolom_kelas].unique().tolist()
@@ -60,22 +58,33 @@ with tab_sampel:
             m_sampel = folium.Map(location=[-7.536, 112.238], zoom_start=8, tiles=None)
             folium.TileLayer("https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", attr="Google", name="Google Satellite", max_zoom=20).add_to(m_sampel)
             
-            # Tambahkan Marker Titik Sampel
+            # Mapping warna berdasarkan metadata kelas
+            color_mapping = {c['name']: c['color'] for c in meta.get('classes', [])}
+            
+            # Tambahkan Marker Titik Sampel dengan warna dinamis per kelas
             for _, row in df_filtered.iterrows():
-                # Pastikan di CSV kamu ada kolom latitude/lat dan longitude/lon/lng
                 lat = row.get('latitude', row.get('lat', -7.5))
                 lon = row.get('longitude', row.get('lon', row.get('lng', 112.2)))
                 label = row.get('class', row.get('label', 'Sampel'))
                 
+                # Ambil warna dari metadata, fallback ke biru jika tidak ada
+                marker_color = color_mapping.get(label, '#3388ff')
+                
                 folium.CircleMarker(
                     location=[lat, lon],
-                    radius=5,
-                    color='blue',
+                    radius=6,
+                    color=marker_color,
+                    weight=1,
                     fill=True,
-                    fill_color='cyan',
-                    fill_opacity=0.7,
+                    fill_color=marker_color,
+                    fill_opacity=0.8,
                     popup=f"Kelas: {label}"
                 ).add_to(m_sampel)
+                
+            # Tambahkan kotak legenda khusus sampel di peta
+            legenda_sampel = "<div style='position:fixed;bottom:25px;left:25px;z-index:9999;background:white;padding:8px 10px;border:1px solid #888;font-size:12px;border-radius:5px'><b>Legenda Sampel</b><br>" + "".join(
+                f"<span style='display:inline-block;width:14px;height:14px;background:{k['color']};margin-right:6px;border-radius:50%'></span>{k['name']}<br>" for k in meta.get('classes', [])) + "</div>"
+            m_sampel.get_root().html.add_child(folium.Element(legenda_sampel))
                 
             st_folium(m_sampel, height=500, use_container_width=True, returned_objects=[])
             
