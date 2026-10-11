@@ -10,7 +10,7 @@ BASE = Path(__file__).parent
 R = BASE / "results"
 meta = json.loads((R / "metadata.json").read_text())
 
-st.title("🌱 Klasifikasi Tutupan Lahan Jawa Timur")
+st.title("Klasifikasi Tutupan Lahan Jawa Timur - UTS PSD")
 st.caption(f"Sentinel-2 L2A | Model: {meta['model']}")
 
 # Tab Navigasi
