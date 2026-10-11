@@ -9,36 +9,91 @@ st.set_page_config(page_title="Klasifikasi Lahan Jawa Timur", layout="wide")
 R = Path(__file__).parent / "results"
 meta = json.loads((R / "metadata.json").read_text())
 
-st.title("Klasifikasi Tutupan Lahan Jawa Timur")
-st.caption(f"Sentinel-2 L2A, periode {meta['periode'][0]} s/d {meta['periode'][1]}, model: {meta['model']}")
-a, b, c = st.columns(3)
-a.metric("Akurasi uji", f"{meta['metrics']['accuracy'] * 100:.2f}%")
-b.metric("F1 macro", f"{meta['metrics']['f1_macro']:.3f}")
-c.metric("Data latih / uji", f"{meta['n_train']} / {meta['n_test']}")
+st.title("🌱 Klasifikasi Tutupan Lahan Jawa Timur")
+st.caption(f"Sentinel-2 L2A | Model: {meta['model']}")
 
-tab_peta, tab_eval = st.tabs(["Peta", "Evaluasi dan statistik"])
+# Tab Navigasi (ditambah menu Titik Sampel)
+tab_peta, tab_sampel, tab_eval = st.tabs(["Peta Regional & AOI", "Peta Titik Sampel", "Evaluasi dan Statistik"])
+
 with tab_peta:
     pilih = st.selectbox("Zoom ke area", [x["name"] for x in meta["aois"]])
     pusat = next(x for x in meta["aois"] if x["name"] == pilih)["center"]
     opasitas = st.slider("Opasitas hasil klasifikasi", 0.1, 1.0, 0.75)
-    m = folium.Map(location=pusat, zoom_start=13, tiles=None)
+    
+    m = folium.Map(location=pusat, zoom_start=11, tiles=None)
     folium.TileLayer("https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", attr="Google", name="Google Satellite", max_zoom=20).add_to(m)
+    
     prov = meta.get("province")
-    if prov:
+    if prov and (R / prov["file"]).exists():
         folium.raster_layers.ImageOverlay(image=str(R / prov["file"]), bounds=prov["bounds"], opacity=opasitas, name="Seluruh Jawa Timur").add_to(m)
+    
     for x in meta["aois"]:
-        folium.raster_layers.ImageOverlay(image=str(R / x["file"]), bounds=x["bounds"], opacity=opasitas, name=x["name"]).add_to(m)
-    legenda = "<div style='position:fixed;bottom:25px;left:25px;z-index:9999;background:white;padding:8px 10px;border:1px solid #888;font-size:12px'><b>Legenda</b><br>" + "".join(
-        f"<span style='display:inline-block;width:14px;height:14px;background:{k['color']};margin-right:6px'></span>{k['name']}<br>" for k in meta["classes"]) + "</div>"
-    m.get_root().html.add_child(folium.Element(legenda))
+        if (R / x["file"]).exists():
+            folium.raster_layers.ImageOverlay(image=str(R / x["file"]), bounds=x["bounds"], opacity=opasitas, name=x["name"]).add_to(m)
+            
     folium.LayerControl().add_to(m)
-    st_folium(m, height=600, use_container_width=True, returned_objects=[])
+    st_folium(m, height=550, use_container_width=True, returned_objects=[])
+
+with tab_sampel:
+    st.subheader("📍 Peta Sebaran Titik Sampel & Hasil Prediksi")
+    st.markdown("Menampilkan sebaran titik sampel dari data latih/uji tutupan lahan.")
+    
+    # Cek apakah file samples.csv ada
+    sample_path = R / "samples.csv"
+    if sample_path.exists():
+        df_samples = pd.read_csv(sample_path)
+        
+        # Filter berdasarkan kelas jika kolomnya tersedia (sesuaikan dengan nama kolom di CSV kamu, misal 'class' atau 'label')
+        if 'class' in df_samples.columns or 'label' in df_samples.columns:
+            kolom_kelas = 'class' if 'class' in df_samples.columns else 'label'
+            daftar_kelas = df_samples[kolom_kelas].unique().tolist()
+            selected_classes = st.multiselect("Pilih Kelas Lahan:", daftar_kelas, default=daftar_kelas)
+            
+            df_filtered = df_samples[df_samples[kolom_kelas].isin(selected_classes)]
+        else:
+            df_filtered = df_samples
+            
+        col_map, col_stat = st.columns([2, 1])
+        
+        with col_map:
+            # Buat Peta untuk Sampel
+            m_sampel = folium.Map(location=[-7.536, 112.238], zoom_start=8, tiles=None)
+            folium.TileLayer("https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", attr="Google", name="Google Satellite", max_zoom=20).add_to(m_sampel)
+            
+            # Tambahkan Marker Titik Sampel
+            for _, row in df_filtered.iterrows():
+                # Pastikan di CSV kamu ada kolom latitude/lat dan longitude/lon/lng
+                lat = row.get('latitude', row.get('lat', -7.5))
+                lon = row.get('longitude', row.get('lon', row.get('lng', 112.2)))
+                label = row.get('class', row.get('label', 'Sampel'))
+                
+                folium.CircleMarker(
+                    location=[lat, lon],
+                    radius=5,
+                    color='blue',
+                    fill=True,
+                    fill_color='cyan',
+                    fill_opacity=0.7,
+                    popup=f"Kelas: {label}"
+                ).add_to(m_sampel)
+                
+            st_folium(m_sampel, height=500, use_container_width=True, returned_objects=[])
+            
+        with col_stat:
+            st.markdown("### **Distribusi Titik**")
+            if 'class' in df_samples.columns or 'label' in df_samples.columns:
+                st.dataframe(df_samples[kolom_kelas].value_counts().reset_index(), use_container_width=True)
+            else:
+                st.info(f"Total Titik Sampel: {len(df_samples)}")
+    else:
+        st.warning("File `samples.csv` tidak ditemukan di dalam folder results.")
 
 with tab_eval:
-    st.subheader("Perbandingan model")
-    st.dataframe(pd.read_csv(R / "model_comparison.csv").round(4))
-    st.subheader("Jumlah data latih dan uji")
-    st.dataframe(pd.read_csv(R / "train_test_split.csv"))
-    st.subheader("Luas kelas per area (hektar)")
-    st.dataframe(pd.read_csv(R / "luas_per_aoi_ha.csv").set_index("AOI"))
-    st.image(str(R / "confusion_matrix.png"), caption="Confusion matrix data uji")
+    st.subheader("📊 Evaluasi Performa Model")
+    if (R / "model_comparison.csv").exists():
+        st.dataframe(pd.read_csv(R / "model_comparison.csv").round(4))
+    if (R / "confusion_matrix.png").exists():
+        st.image(str(R / "confusion_matrix.png"), caption="Confusion Matrix")
+    if (R / "luas_per_aoi_ha.csv").exists():
+        st.subheader("Luas Kelas per Area (Hektar)")
+        st.dataframe(pd.read_csv(R / "luas_per_aoi_ha.csv").set_index("AOI"))
